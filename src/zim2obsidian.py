@@ -47,6 +47,10 @@ import re
 
 # Configuration (to be changed by the user).
 
+MOVE_UP_INDEX_PAGES = False
+# if True, move all Zim index pages one level up.
+# This is not fully implemented yet!
+
 RENAME_PAGES = True
 # if True, rename pages according to the names given by the top first level heading.
 
@@ -58,6 +62,51 @@ CHANGE_HEADING_STYLE = True
 
 REFORMAT_LINKS = True
 # If True, change Markdown-style links to Obsidian-style links.
+
+
+def move_up_index_pages():
+    """Move all Zim index pages one level up.
+    
+    This is all but finished.
+    """
+
+    def make_index_pages(nodeDir):
+        try:
+            for node in next(os.walk(nodeDir))[1]:
+                try:
+                    os.rename(f'{nodeDir}/{node}.md', f'{nodeDir}/{node}/{node}.md')
+                except:
+                    pass
+                else:
+                    print(f'Moved up "{nodeDir}/{node}.md" ...')
+                    allNodes.append(node)
+                make_index_pages(f'{nodeDir}/{node}')
+        except StopIteration:
+            pass
+
+    # First run: Move all Zim index pages one level up, and rename them index.md.
+    allNodes = []
+    make_index_pages(os.getcwd())
+
+    # Second run: Adjust links.
+    for noteFile in glob.glob('**/*.md', recursive=True):
+        print(f'Adjusting links in "{noteFile}" ...')
+
+        # Todo: Make sure to level-down the links on the moved  pages.
+
+        hasChanged = False
+        with open(noteFile, 'r', encoding='utf-8') as f:
+            page = f.read()
+        for indexName in allNodes:
+            links = re.findall(f'\[.+\]\((.*{indexName})\)', page)
+            for oldLink in links:
+                newLink = oldLink.replace(indexName, f'{indexName}/{indexName}')
+                print(f'"{oldLink}"-->"{newLink}"')
+                page = page.replace(oldLink, newLink)
+                hasChanged = True
+        if hasChanged:
+            with open(noteFile, 'w', encoding='utf-8') as f:
+                f.write(page)
 
 
 def rename_pages():
@@ -188,6 +237,8 @@ def main():
         remove_first_line()
     if REFORMAT_LINKS:
         reformat_links()
+    if MOVE_UP_INDEX_PAGES:
+        move_up_index_pages()
     print('\nDone.')
 
 
